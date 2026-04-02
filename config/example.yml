@@ -1,0 +1,606 @@
+---
+# =============================================================================
+# admin_collector - Example Configuration File
+# Covers all sensors in the scripts/ directory
+# Environment variable: PROJECT=<env_name> (default: staging)
+# =============================================================================
+
+default:
+  proxy_server:
+    enable: false
+    host: 10.236.11.202
+    port: 3128
+  interval: 30
+  node_exporter:
+    prom_dir:
+      - /var/lib/node_exporter/textfile_collector
+      - /textfile_collector
+
+sensor:
+
+  # ---------------------------------------------------------------------------
+  # audit.py — File change tracking & command detection via audit logs
+  # Metrics: file_mtime, file_change_count, file_last_changed,
+  #          command_detect_last_seen, command_detect_count
+  # ---------------------------------------------------------------------------
+  audit:
+    enable: true
+    interval: 30
+    scripts:
+      - audit.py
+
+    file_stats:
+      enable: true
+      files:
+        - /etc/hosts
+        - /etc/fstab
+        - /etc/netplan/*.yaml
+      folders:
+        - /etc/nginx/*.conf
+
+    command_detect:
+      enable: true
+      logs:
+        - /var/log/syslog
+      exclude_users:
+        - ubuntu
+        - root
+      keywords_to_monitor:
+        - rm -rf
+        - systemctl restart
+        - systemctl stop
+        - systemctl disable
+        - halt
+        - kill -9
+        - pkill -9
+        - killall -9
+        - docker stop
+        - docker restart
+        - docker rm
+        - docker kill
+        - docker image rm
+        - netplan apply
+        - hostnamectl set-hostname
+
+  # ---------------------------------------------------------------------------
+  # ceph.py — Ceph cluster health and performance monitoring
+  # Metrics: recovery bytes/objects/sec, client io read/write, OSD latency,
+  #          pool autoscale, slow requests, pool-OSD mapping
+  # Note: only runs on active MGR node
+  # ---------------------------------------------------------------------------
+  ceph:
+    enable: true
+    interval: 30
+    cluster: ceph
+    command: /usr/bin/ceph
+    scripts:
+      - ceph.py
+
+  # ---------------------------------------------------------------------------
+  # ceph_pool_osd_mapping.py — Map Ceph pools → CRUSH root → host → OSD via CRUSH
+  # Metrics: ceph_pool_node_mapping{cluster, pool_name, crush_root, hostname},
+  #          ceph_pool_osd_mapping{..., osd_id},
+  #          ceph_pool_osd_mapping_last_updated{cluster}
+  # Note: only runs on active MGR node (needs access to osd dump + crush dump)
+  # ---------------------------------------------------------------------------
+  ceph_pool_osd_mapping:
+    enable: true
+    interval: 300
+    cluster: ceph
+    command: /usr/bin/ceph
+    scripts:
+      - ceph_pool_osd_mapping.py
+
+  # ---------------------------------------------------------------------------
+  # ceph_rbd.py — RBD volume and snapshot metrics per pool
+  # Metrics: rbd_volume_size_bytes, rbd_volume_locked, rbd_volume_snap_total,
+  #          rbd_volume_snap_daily/export/migrate/other_count,
+  #          rbd_volume_snap_latest/oldest_daily, rbd_volume_has_today_snap,
+  #          rbd_snap_info, rbd_snap_size_bytes, rbd_snap_protected,
+  #          rbd_pool_broken_count
+  # snap types: daily=YYYYMMDD, export=export-*, migrate=migrate-*, other=rest
+  # ---------------------------------------------------------------------------
+  ceph_rbd:
+    enable: true
+    interval: 300
+    ceph_conf: /etc/ceph/ceph.conf
+    keyring: /etc/ceph/ceph.client.admin.keyring
+    rbd_user: admin
+    pools:
+      - PUBC07-SSD-01
+      - PUBC07-SSD-02
+      - PUBC07-SSD-03
+    scripts:
+      - ceph_rbd.py
+
+  # ---------------------------------------------------------------------------
+  # ceph_orch.py — Ceph Orchestrator daemon status
+  # Metrics: ceph_orch_ps_status, ceph_orch_ps_memory_usage,
+  #          ceph_orch_ps_cpu_percentage
+  # Note: only runs on active MGR node
+  # ---------------------------------------------------------------------------
+  ceph_orch:
+    enable: true
+    interval: 30
+    cluster: ceph
+    command: /usr/bin/ceph
+    scripts:
+      - ceph_orch.py
+
+  # ---------------------------------------------------------------------------
+  # ceph_rgw.py — Ceph RADOS Gateway bucket & user metrics
+  # Metrics: ceph_rgw_bucket_size_bytes, ceph_rgw_bucket_num_objects,
+  #          ceph_rgw_bucket_quota_*, ceph_rgw_user_quota_*
+  # ---------------------------------------------------------------------------
+  ceph_rgw:
+    enable: true
+    interval: 60
+    cluster: ceph
+    command: /usr/bin/ceph
+    max_workers: 8
+    limit_bucket: 10000
+    reshard_threshold: 200000
+    scripts:
+      - ceph_rgw.py
+
+  # ---------------------------------------------------------------------------
+  # chrony.py — NTP synchronization status via chronyc
+  # Metrics: chrony_offset, chrony_stratum, chrony_rtt, chrony_leap_status,
+  #          chrony_root_delay, chrony_root_dispersion, chrony_total_rx, etc.
+  # No additional config keys required (uses chronyc tracking output)
+  # ---------------------------------------------------------------------------
+  chrony:
+    enable: true
+    interval: 30
+    scripts:
+      - chrony.py
+
+  # ---------------------------------------------------------------------------
+  # cisco.py — Cisco / Nexus switch monitoring via SNMPv3 + NX-OS REST API
+  # Metrics: cpu_utilization, memory_utilization, uptime, interface status/speed
+  #          /traffic, nxos_vpc_domain, nxos_vpc_role, nxos_vpc_peer_status
+  # vendor: "cisco" | "nxos"
+  # ---------------------------------------------------------------------------
+  cisco:
+    enable: true
+    interval: 30
+    scripts:
+      - cisco.py
+    targets:
+      - enable: true
+        ip: 10.0.0.1
+        site: datacenter1
+        snmp_port: 161
+        username: snmpv3user
+        md5: auth_password_here
+        des: priv_password_here
+        vendor: cisco
+        tag: core-sw01
+
+      - enable: true
+        ip: 10.0.0.2
+        site: datacenter1
+        snmp_port: 161
+        username: snmpv3user
+        md5: auth_password_here
+        des: priv_password_here
+        vendor: nxos
+        tag: nxos-sw01
+        api_username: admin
+        api_password: nxos_api_password
+        api_port: 80
+
+  # ---------------------------------------------------------------------------
+  # common.py — Common system metrics: conntrack, keepalived, service status
+  # Metrics: nf_conntrack_count, nf_conntrack_max, nf_conntrack_percent,
+  #          keepalived_status, keepalived_role, service_status
+  # ---------------------------------------------------------------------------
+  common:
+    enable: true
+    interval: 30
+    scripts:
+      - common.py
+    nf_conntrack:
+      enable: true
+    keepalived:
+      enable: true
+    service_status:
+      enable: true
+      targets:
+        - zabbix_agentd
+        - auditbeat
+        - podman
+        - chronyd
+        - nginx
+        - docker
+
+  # ---------------------------------------------------------------------------
+  # dailybackup.py — Scan backup volume sizes (full / diff) in storage pools
+  # Metrics: dailybackup_volumes_summary{pool_name, pool_path, id,
+  #          volume_name, type, modified_time, modified_timestamp}
+  # Expects volumes named with UUID suffix, e.g.: vol-<uuid>-full, vol-<uuid>-diff
+  # ---------------------------------------------------------------------------
+  dailybackup:
+    enable: true
+    interval: 7200
+    scripts:
+      - dailybackup.py
+    pools:
+      pool-hdd:
+        - /mnt/backup/pool-hdd
+      pool-ssd:
+        - /mnt/backup/pool-ssd/tier1
+        - /mnt/backup/pool-ssd/tier2
+
+  # ---------------------------------------------------------------------------
+  # docker.py — Docker container statistics
+  # Metrics: docker_cpu_usage, docker_memory_usage, docker_memory_limit,
+  #          docker_network_input/output, docker_block_input/output,
+  #          docker_container_status (1=running,2=paused,3=restarting,
+  #                                   4=OOMKilled,5=dead)
+  # No additional config keys required (uses docker CLI)
+  # ---------------------------------------------------------------------------
+  docker:
+    enable: true
+    interval: 30
+    scripts:
+      - docker.py
+
+  # ---------------------------------------------------------------------------
+  # ftg.py — Fortigate firewall monitoring via SNMPv3
+  # Metrics: fortigate_vpn_tunnel_count, fortigate_vpn_tunnel_status,
+  #          fortigate_cpu_used, fortigate_memory_used, fortigate_ha_status,
+  #          fortigate_ha_role, fortigate_vpn_in_traffic, fortigate_vpn_out_traffic
+  # ---------------------------------------------------------------------------
+  fortigate:
+    enable: true
+    interval: 30
+    scripts:
+      - ftg.py
+    targets:
+      - enable: true
+        ip: 192.168.1.1
+        site: hq-dc
+        snmp_port: 161
+        username: snmpv3user
+        md5: auth_password_here
+        des: priv_password_here
+        vendor: fortigate
+        tag: fw-hq-01
+
+      - enable: true
+        ip: 192.168.1.2
+        site: dr-dc
+        snmp_port: 161
+        username: snmpv3user
+        md5: auth_password_here
+        des: priv_password_here
+        vendor: fortigate
+        tag: fw-dr-01
+
+  # ---------------------------------------------------------------------------
+  # host_status.py — ICMP ping and TCP port reachability checks
+  # Metrics: icmp_response_time, icmp_status, tcp_status
+  # protocol.port: use "icmp" for ping, or a TCP port number (e.g. 22, 80)
+  # ---------------------------------------------------------------------------
+  check_host:
+    enable: true
+    interval: 30
+    scripts:
+      - host_status.py
+    targets:
+      - ip: 10.0.0.1
+        device: core-sw01
+        site: datacenter1
+        protocol:
+          - port: icmp
+            description: ping-core-sw01
+          - port: 22
+            description: ssh-core-sw01
+          - port: 443
+            description: https-core-sw01
+
+      - ip: 10.0.0.10
+        device: db-server-01
+        site: datacenter1
+        protocol:
+          - port: icmp
+            description: ping-db01
+          - port: 3306
+            description: mysql-db01
+
+  # ---------------------------------------------------------------------------
+  # http_status.py — HTTPS/SSL certificate expiry per URL + IP
+  # Metrics: http_status{url, ip, description} — days until cert expiry
+  # Error codes: -1 conn error, -2 SSL error, -3 other, -4 CN/SAN mismatch,
+  #              -5 SNI not recognized, -6 timeout, -7 DNS fail, -9 internal
+  # ---------------------------------------------------------------------------
+  http_status:
+    enable: true
+    interval: 30
+    timeout: 5
+    scripts:
+      - http_status.py
+    targets:
+      - url: https://example.com
+        ip:
+          - 1.2.3.4
+      - url: https://api.example.com
+        ip:
+          - 1.2.3.5
+          - 1.2.3.6
+      - url: https://internal.corp.local
+        ip:
+          - 10.10.0.50
+
+  # ---------------------------------------------------------------------------
+  # irq.py — CPU interrupt and softirq statistics from /proc
+  # Metrics: cpu_jiffies{cpu, mode}, softirq_total{cpu, type},
+  #          irq_count{cpu, irq}, ksoftirqd_cpu_time, ksoftirqd_allowed_cpus
+  # No additional config keys required (reads /proc/stat, /proc/softirqs,
+  #                                     /proc/interrupts)
+  # ---------------------------------------------------------------------------
+  irq:
+    enable: true
+    interval: 30
+    scripts:
+      - irq.py
+
+  # ---------------------------------------------------------------------------
+  # kubernetes.py — Kubernetes node and pod resource monitoring
+  # Metrics: kube_node_status, kube_node_cpu_limit, kube_node_memory_limit,
+  #          kube_node_max_pods, kube_pod_status, kube_pod_restart,
+  #          kube_pod_memory_limit, kube_pod_cpu_limit
+  # Requires kubectl configured on the host
+  # ---------------------------------------------------------------------------
+  kubernetes:
+    enable: true
+    interval: 30
+    scripts:
+      - kubernetes.py
+
+  # ---------------------------------------------------------------------------
+  # mysql_exporter.py — MySQL / Galera cluster metrics
+  # Metrics: db_connections, db_threads_running, db_slow_queries,
+  #          wsrep_cluster_size, wsrep_cluster_role
+  # ---------------------------------------------------------------------------
+  mysql:
+    enable: true
+    interval: 30
+    scripts:
+      - mysql_exporter.py
+    targets:
+      - enable: true
+        db_host: 10.0.1.10
+        db_port: 3306
+        db_user: monitor
+        db_passwd: monitor_password
+        db_name: information_schema
+
+      - enable: true
+        db_host: 10.0.1.11
+        db_port: 3306
+        db_user: monitor
+        db_passwd: monitor_password
+        db_name: information_schema
+
+  # ---------------------------------------------------------------------------
+  # podman.py — Podman container statistics
+  # Metrics: podman_memory_limit, podman_memory_usage, podman_memory_percentage,
+  #          podman_cpu_usage, podman_network_input/output,
+  #          podman_block_input/output, podman_container_status
+  # No additional config keys required (uses podman CLI)
+  # ---------------------------------------------------------------------------
+  podman:
+    enable: true
+    interval: 30
+    scripts:
+      - podman.py
+
+  # ---------------------------------------------------------------------------
+  # process.py — Count running instances of named processes
+  # Metrics: total_process{process_name}, process_details{process_name,user,pid}
+  # targets: list of process name strings to monitor
+  # ---------------------------------------------------------------------------
+  process_status:
+    enable: true
+    interval: 30
+    scripts:
+      - process.py
+    targets:
+      - nginx
+      - mysqld
+      - redis-server
+      - haproxy
+      - ceph-osd
+      - ceph-mon
+
+  # ---------------------------------------------------------------------------
+  # ps.py — Full process table statistics via ps
+  # Metrics: ps_custom_cpu_usage, ps_custom_memory_usage,
+  #          ps_custom_memory_virtual_bytes, ps_custom_memory_resident_bytes,
+  #          ps_custom_process_uptime_seconds, ps_custom_process_start_time_seconds
+  # No additional config keys required (reads all user-space processes)
+  # ---------------------------------------------------------------------------
+  ps:
+    enable: true
+    interval: 30
+    scripts:
+      - ps.py
+
+  # ---------------------------------------------------------------------------
+  # pve.py — Proxmox Virtual Environment node & VM/LXC metrics
+  # Metrics: proxmox_node_memory, proxmox_node_cpu, proxmox_io_stats,
+  #          proxmox_vm_resource, proxmox_storage, proxmox_uptime,
+  #          proxmox_cpu_temp, proxmox_load_avg, proxmox_phys_mem
+  # ---------------------------------------------------------------------------
+  pve:
+    enable: true
+    interval: 30
+    scripts:
+      - pve.py
+    ip: 10.0.0.20       # Optional; defaults to local IP
+    port: 8006
+    user: root@pam      # Format: username@realm
+    password: proxmox_password_here
+
+  # ---------------------------------------------------------------------------
+  # rabbitmq.py — RabbitMQ queue depth and message counts
+  # Metrics: rabbitmq_total_queue, rabbitmq_total_messages,
+  #          rabbitmq_details_queue{target_name, queue_name,
+  #                                  rabbitmq_host, rabbitmq_port}
+  # targets: dict of named instances
+  # ---------------------------------------------------------------------------
+  rabbitmq:
+    enable: true
+    interval: 30
+    scripts:
+      - rabbitmq.py
+    targets:
+      rabbitmq-prod-01:
+        ip: 10.0.2.10
+        port: 15672
+        user: monitor
+        password: monitor_password
+      rabbitmq-prod-02:
+        ip: 10.0.2.11
+        port: 15672
+        user: monitor
+        password: monitor_password
+
+  # ---------------------------------------------------------------------------
+  # s3.py — S3-compatible object storage latency and availability
+  # Metrics: s3_head, s3_download, s3_upload, s3_delete response times
+  # provider: named provider → list of public/private endpoint configs
+  # ---------------------------------------------------------------------------
+  s3:
+    enable: true
+    interval: 30
+    scripts:
+      - s3.py
+    provider:
+      hcm04:
+        - public:
+          enable: true
+          interval: 30
+          request: 1
+          profile: lab
+          encryption: false
+          method:
+            - head
+            - download
+            - upload
+            - delete
+          bucket:
+            - data
+          local_src:
+            - /etc/hosts
+          local_dst:
+            - /tmp/hosts
+          endpoints:
+            - https://hcm04.vstorage.vngcloud.vn
+        - private:
+          enable: true
+          interval: 30
+          request: 1
+          profile: lab
+          encryption: false
+          method:
+            - head
+            - download
+            - upload
+            - delete
+          bucket:
+            - data
+          local_src:
+            - /etc/hosts
+          local_dst:
+            - /tmp/hosts
+          endpoints:
+            - http://192.168.100.161:8020
+            - http://192.168.100.162:8020
+            - http://192.168.100.163:8020
+
+  # ---------------------------------------------------------------------------
+  # sslfolder.py — SSL certificate expiry for domains sourced from .conf files
+  #                in a folder (e.g. nginx vhost configs)
+  # Metrics: folder_ssl_checker{url} — days until expiry (-1 = failed)
+  # targets.folders: directories containing <domain>.conf files
+  # targets.urls: additional domains to check directly
+  # ---------------------------------------------------------------------------
+  ssl_checker:
+    enable: true
+    interval: 3600
+    timeout: 3
+    scripts:
+      - sslfolder.py
+    targets:
+      folders:
+        - /etc/nginx/sites-enabled
+        - /etc/nginx/conf.d
+      urls:
+        - example.com
+        - api.example.com
+        - internal.corp.local
+
+  # ---------------------------------------------------------------------------
+  # sslstatic.py — SSL certificate expiry for static URL + IP pairs
+  # Metrics: http_status{url, ip, description} — days until cert expiry
+  # Same error codes as http_status.py
+  # ---------------------------------------------------------------------------
+  sslstatic:
+    enable: true
+    interval: 3600
+    timeout: 5
+    scripts:
+      - sslstatic.py
+    targets:
+      - url: https://www.example.com
+        ip:
+          - 1.2.3.4
+      - url: https://cdn.example.com
+        ip:
+          - 1.2.3.10
+          - 1.2.3.11
+
+  # ---------------------------------------------------------------------------
+  # wordpress.py — WordPress site statistics via DB + WP REST API
+  # Metrics: total_posts, total_comments, total_users, total_pages,
+  #          total_categories, total_views, posts_per_category,
+  #          views_per_post, views_per_category, posts_with_keywords,
+  #          rocket_cache (completed/total/incomplete/failed)
+  # ---------------------------------------------------------------------------
+  wordpress:
+    enable: true
+    interval: 60
+    scripts:
+      - wordpress.py
+    targets:
+      - enable: true
+        domain: myblog.example.com
+        db_host: 10.0.3.10
+        db_port: 3306
+        db_user: wp_monitor
+        db_passwd: wp_password_here
+        db_name: wordpress
+        wp_user: admin
+        wp_passwd: wp_admin_password
+        matched_keywords:
+          - urgent
+          - breaking
+          - critical
+
+  # ---------------------------------------------------------------------------
+  # zfs.py — ZFS pool and filesystem space/health monitoring
+  # Metrics: zfs_capacity, zfs_avail, zfs_used, zfs_total, zfs_refres,
+  #          zpool_capacity, zpool_avail, zpool_size, zpool_status,
+  #          zpool_state_status, zpool_error_count, zpool_needs_clear,
+  #          zpool_needs_replace, zpool_scanned_bytes, zpool_scan_speed,
+  #          zpool_resilvered_bytes, resilver_progress_percent
+  # No additional config keys required (uses zpool/zfs CLI)
+  # ---------------------------------------------------------------------------
+  zfs:
+    enable: true
+    interval: 30
+    scripts:
+      - zfs.py
