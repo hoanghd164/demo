@@ -2,7 +2,7 @@
 default:
   proxy_server:
     enable: false
-    host: 10.236.11.202
+    host: 10.10.16.200
     port: 3128
   interval: 30
   node_exporter:
@@ -20,7 +20,7 @@ sensor:
       - ceph.py
       
   s3:
-    enable: true
+    enable: false
     provider:
       hcm04:
         - public:
@@ -99,7 +99,7 @@ sensor:
       - ceph_orch.py
 
   ceph_rgw:
-    enable: true
+    enable: false
     interval: 60
     cluster: ceph
     max_workers: 8

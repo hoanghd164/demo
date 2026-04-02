@@ -50,7 +50,7 @@ export https_proxy=http://10.10.14.200:3128
 Clone the code
 
 ```bash
-git clone https://github.com/hoanghd164/admin.collector.git /opt/admin.collector
+git clone https://github.com/hoanghd164/demo.git /opt/admin.collector
 ```
 
 ---
