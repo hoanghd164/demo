@@ -7,8 +7,8 @@ default:
   interval: 30
   node_exporter:
     prom_dir: 
-      - /var/lib/node_exporter/textfile_collector
-      - /textfile_collector
+      - /var/lib/node_exporter/textfile_collector1
+      - /var/lib/node_exporter/textfile_collector2
 
 sensor:
   ceph:
