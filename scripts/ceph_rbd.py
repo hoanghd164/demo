@@ -207,6 +207,7 @@ def build_help_headers() -> list:
 
 if __name__ == "__main__":
     sensor_name = "ceph_rbd"
+    prom_dirs = get_str("NODE_EXPORTER_PROM_DIR", "/var/lib/node_exporter/textfile_collector").split(":")
 
     try:
         project = os.environ.get("PROJECT", "staging")
@@ -220,8 +221,6 @@ if __name__ == "__main__":
         ceph_conf = sensor_cfg.get("ceph_conf", "/etc/ceph/ceph.conf")
         keyring   = sensor_cfg.get("keyring", "/etc/ceph/ceph.client.admin.keyring")
         rbd_user  = sensor_cfg.get("rbd_user", "admin")
-
-        prom_dirs = get_str("NODE_EXPORTER_PROM_DIR", "/var/lib/node_exporter/textfile_collector").split(":")
 
         today = date.today().strftime('%Y%m%d')
         all_metrics = build_help_headers()
@@ -250,7 +249,6 @@ if __name__ == "__main__":
 
     except Exception as e:
         traceback.print_exc()
-        prom_dirs = get_str("NODE_EXPORTER_PROM_DIR", "/var/lib/node_exporter/textfile_collector").split(":")
         write_prometheus_metrics(prom_dirs, [
             {"name": "ceph_rbd_error", "message": str(e).replace('"', "'"), "value": 1}
         ], sensor_name)

@@ -94,17 +94,18 @@ def docker_containers():
 def main():
     sensor_name = "docker_container"
     final_results = []
+    prom_dirs = get_str("NODE_EXPORTER_PROM_DIR", "/var/lib/node_exporter/textfile_collector").split(":")
 
     try:
         project = os.environ.get("PROJECT", "staging")
         config = load_config(project)
 
         try:
-            final_metrics += docker_stats()
-            final_metrics += docker_containers()
+            final_results += docker_stats()
+            final_results += docker_containers()
 
         except Exception as e:
-            final_metrics.append({
+            final_results.append({
                 "name": "docker_error",
                 "role": sensor_name,
                 "message": str(e).replace('"', "'"),
@@ -121,7 +122,6 @@ def main():
         }]
         traceback.print_exc()
 
-    prom_dirs = get_str("NODE_EXPORTER_PROM_DIR", "/var/lib/node_exporter/textfile_collector").split(":")
     write_prometheus_metrics(prom_dirs, final_results, sensor_name)
 
 if __name__ == "__main__":

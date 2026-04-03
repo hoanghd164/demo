@@ -80,7 +80,7 @@ if __name__ == '__main__':
 
     except Exception as e:
         error_msg = str(e).replace('"', "'")
-        metrics = [{
+        final_metrics = [{
             "name": "rabbitmq_error",
             "role": "rabbitmq",
             "message": f"config_or_main_fail: {error_msg}",

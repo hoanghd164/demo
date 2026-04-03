@@ -240,12 +240,11 @@ if __name__ == '__main__':
         write_prometheus_metrics(prom_dirs, final_results, sensor_name)
     except Exception as e:
         error_metrics = [{
-            "name": "ps_error",
-            "role": "ps",
+            "name": "irq_error",
+            "role": "irq",
             "message": str(e).replace('"', "'"),
             "value": 1
         }]
         traceback.print_exc()
-        fallback_dirs = ["/tmp"]
-        write_prometheus_metrics(fallback_dirs, error_metrics, sensor_name)
+        write_prometheus_metrics(prom_dirs, error_metrics, sensor_name)
         sys.exit(1)

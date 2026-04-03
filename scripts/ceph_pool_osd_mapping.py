@@ -198,6 +198,7 @@ def collect(cluster: str, command: str) -> list:
 
 if __name__ == "__main__":
     sensor_name = "ceph_pool_osd_mapping"
+    prom_dirs = get_str("NODE_EXPORTER_PROM_DIR", "/var/lib/node_exporter/textfile_collector").split(":")
 
     try:
         project = os.environ.get("PROJECT", "staging")
@@ -210,14 +211,11 @@ if __name__ == "__main__":
         cluster = sensor_cfg.get("cluster", "ceph")
         command = sensor_cfg.get("command", "/usr/bin/ceph")
 
-        prom_dirs = get_str("NODE_EXPORTER_PROM_DIR", "/var/lib/node_exporter/textfile_collector").split(":")
-
         results = collect(cluster, command)
         write_prometheus_metrics(prom_dirs, results, sensor_name)
 
     except Exception as e:
         traceback.print_exc()
-        prom_dirs = get_str("NODE_EXPORTER_PROM_DIR", "/var/lib/node_exporter/textfile_collector").split(":")
         write_prometheus_metrics(prom_dirs, [
             {"name": "ceph_pool_osd_mapping_error", "message": str(e).replace('"', "'"), "value": 1}
         ], sensor_name)
