@@ -8,7 +8,6 @@ default:
   node_exporter:
     prom_dir: 
       - /var/lib/node_exporter/textfile_collector1
-      - /var/lib/node_exporter/textfile_collector2
 
 sensor:
   ceph:
@@ -19,54 +18,6 @@ sensor:
     scripts:
       - ceph.py
       
-  s3:
-    enable: false
-    provider:
-      hcm04:
-        - public:
-          enable: true
-          interval: 30
-          request: 1
-          profile: lab
-          encryption: false
-          profile: lab
-          method:
-            - head
-            - download
-            - upload
-            - delete
-          bucket:
-            - data
-          local_src:
-            - /etc/hosts
-          local_dst: 
-            - /tmp/hosts
-          endpoints:
-            - https://hcm04.vstorage.vngcloud.vn
-        - private:
-          enable: true
-          interval: 30
-          request: 1
-          profile: lab
-          encryption: false
-          method:
-            - head
-            - download
-            - upload
-            - delete
-          bucket:
-            - data
-          local_src:
-            - /etc/hosts
-          local_dst: 
-            - /tmp/hosts
-          endpoints:
-            - http://192.168.100.161:8020
-            - http://192.168.100.162:8020
-            - http://192.168.100.163:8020
-    scripts:
-      - s3.py
-
   common:
     enable: false
     interval: 30
@@ -107,48 +58,6 @@ sensor:
     reshard_threshold: 200000
     scripts:
       - ceph_rgw.py
-
-  audit:
-    enable: false
-    interval: 30
-    scripts:
-      - audit.py
-
-    file_stats:
-      enable: true
-      files:
-        - /etc/hosts
-        - /etc/netplan/*.yaml
-      folders:
-        - /etc/nginx/*.conf
-
-    command_detect:
-      enable: false
-      logs:
-        - /var/log/syslog
-      exclude_users:
-        - ubuntu
-      keywords_to_monitor:
-        - rm -rf
-        - systemctl restart
-        - systemctl stop
-        - systemctl disable
-        - halt
-        - kill -9
-        - pkill -9
-        - killall -9
-        - docker stop
-        - docker restart
-        - docker rm
-        - docker kill
-        - docker image rm
-        - docker container rm
-        - docker volume rm
-        - docker network rm
-        - hostnamectl set-hostname
-        - netplan apply
-        - ssh
-        - tail -f
 
   ceph_pool_osd_mapping:
     enable: true
