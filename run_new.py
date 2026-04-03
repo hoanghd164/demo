@@ -66,13 +66,26 @@ def collect_enabled_scripts(scripts, config):
     return enabled
 
 
+SAFE_PROM_PREFIXES = (
+    "/var/lib/node_exporter",
+    "/textfile_collector",
+    "/tmp",
+    "/run/node_exporter",
+)
+
 def ensure_empty_dir(path: str):
     if not path or not path.strip():
         return
     path = os.path.abspath(path.strip())
 
-    if path == "/":
-        raise ValueError("Từ chối dọn dẹp root '/'. Hãy kiểm tra cấu hình.")
+    if path == "/" or path.count(os.sep) < 3:
+        raise ValueError(f"Từ chối dọn dẹp path quá ngắn hoặc root: {path}")
+
+    if not any(path.startswith(p) for p in SAFE_PROM_PREFIXES):
+        raise ValueError(
+            f"Từ chối dọn dẹp path ngoài vùng an toàn: {path}\n"
+            f"Cho phép: {SAFE_PROM_PREFIXES}"
+        )
 
     if os.path.exists(path):
         if os.path.isdir(path):
@@ -156,8 +169,11 @@ if __name__ == "__main__":
         print(f"❌ Failed to load config: {e}")
         sys.exit(1)
 
-    WORKING_DIR = get_str("WORKING_DIR", "/etc/admin.collector/source")
+    WORKING_DIR = get_str("WORKING_DIR", "").strip() or "/etc/admin.collector/source"
     SCRIPTS_DIR = os.path.join(WORKING_DIR, "scripts")
+    if not os.path.isdir(SCRIPTS_DIR):
+        print(f"❌ SCRIPTS_DIR không tồn tại: {SCRIPTS_DIR}")
+        sys.exit(1)
     PROM_DIR = get_str("NODE_EXPORTER_PROM_DIR", "/tmp")
 
     PROM_DIRS = [p.strip() for p in get_str("NODE_EXPORTER_PROM_DIR", "/tmp").split(":") if p.strip()]
@@ -170,12 +186,16 @@ if __name__ == "__main__":
     KEEP_SCRIPTS = get_keep_scripts_from_config(config)
     # KEEP_SCRIPTS.update({"__init__.py"})
 
-    kept, removed = safe_cleanup_scripts_dir(
-        SCRIPTS_DIR,
-        KEEP_SCRIPTS,
-        exts=(".py", ".sh"),
-        dry_run=False,
-    )
+    if not KEEP_SCRIPTS:
+        print("⚠️ KEEP_SCRIPTS rỗng (không có sensor nào có 'scripts:') — bỏ qua cleanup scripts để tránh xóa toàn bộ.")
+        kept, removed = [], []
+    else:
+        kept, removed = safe_cleanup_scripts_dir(
+            SCRIPTS_DIR,
+            KEEP_SCRIPTS,
+            exts=(".py", ".sh"),
+            dry_run=False,
+        )
 
     cleanup_config_keep_systemd_project()
     all_scripts = [f for f in os.listdir(SCRIPTS_DIR) if f.endswith(('.py', '.sh'))]
