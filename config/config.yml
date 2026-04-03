@@ -108,7 +108,6 @@ sensor:
     scripts:
       - ceph_rgw.py
 
-sensor:
   audit:
     enable: true
     interval: 30
