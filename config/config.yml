@@ -157,3 +157,14 @@ sensor:
     command: /usr/bin/ceph
     scripts:
       - ceph_pool_osd_mapping.py
+
+  ceph_rbd:
+    enable: true
+    interval: 300
+    ceph_conf: /etc/ceph/ceph.conf
+    keyring: /etc/ceph/ceph.client.admin.keyring
+    rbd_user: admin
+    pools:
+      - rbd
+    scripts:
+      - ceph_rbd.py
