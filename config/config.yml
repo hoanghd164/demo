@@ -12,7 +12,7 @@ default:
 
 sensor:
   ceph:
-    enable: true
+    enable: false
     interval: 30
     cluster: ceph
     command: /usr/bin/ceph
@@ -68,7 +68,7 @@ sensor:
       - s3.py
 
   common:
-    enable: true
+    enable: false
     interval: 30
     service_status:
       enable: true
@@ -85,13 +85,13 @@ sensor:
       - common.py
 
   podman:
-    enable: true
+    enable: false
     interval: 30
     scripts:
       - podman.py
 
   ceph_orch:
-    enable: true
+    enable: false
     interval: 30
     cluster: ceph
     command: /usr/bin/ceph
@@ -109,7 +109,7 @@ sensor:
       - ceph_rgw.py
 
   audit:
-    enable: true
+    enable: false
     interval: 30
     scripts:
       - audit.py
@@ -123,7 +123,7 @@ sensor:
         - /etc/nginx/*.conf
 
     command_detect:
-      enable: true
+      enable: false
       logs:
         - /var/log/syslog
       exclude_users:
@@ -149,3 +149,11 @@ sensor:
         - netplan apply
         - ssh
         - tail -f
+
+  ceph_pool_osd_mapping:
+    enable: true
+    interval: 300
+    cluster: ceph
+    command: /usr/bin/ceph
+    scripts:
+      - ceph_pool_osd_mapping.py
